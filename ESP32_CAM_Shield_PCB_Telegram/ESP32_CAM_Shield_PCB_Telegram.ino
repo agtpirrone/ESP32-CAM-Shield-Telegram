@@ -6,6 +6,10 @@
 
   The above copyright notice and this permission notice shall be included in all
   copies or substantial portions of the Software.
+  
+  ****************
+  I took the liberty to destroy the original code a little bit. I ommited the BME280 and added a toggle for the motion detection to send a photo
+  
 */
 
 #include <WiFi.h>
@@ -16,19 +20,18 @@
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
-#include "SparkFunBME280.h"
 
 // Replace with your network credentials
-const char* ssid = "REPLACE_WITH_YOUR_SSID";
-const char* password = "REPLACE_WITH_YOUR_PASSWORD";
+const char* ssid = "#####";
+const char* password = "#####";
 
 // Use @myidbot to find out the chat ID of an individual or a group
 // Also note that you need to click "start" on a bot before it can
 // message you
-String chatId = "XXXXXXXXXX";
+String chatId = "#####$$";
 
 // Initialize Telegram BOT
-String BOTtoken = "XXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+String BOTtoken = "#####:############";
 
 bool sendPhoto = false;
 
@@ -60,29 +63,13 @@ bool flashState = LOW;
 
 // Motion Sensor
 bool motionDetected = false;
+bool motionON = 0;
 
-// Define I2C Pins for BME280
-#define I2C_SDA 14
-#define I2C_SCL 15
-
-BME280 bme;
- 
 int botRequestDelay = 1000;   // mean time between scan messages
 long lastTimeBotRan;     // last time messages' scan has been done
 
 void handleNewMessages(int numNewMessages);
 String sendPhotoTelegram();
-
-// Get BME280 sensor readings and return them as a String variable
-String getReadings(){
-  float temperature, humidity;
-  temperature = bme.readTempC();
-  //temperature = bme.readTempF();
-  humidity = bme.readFloatHumidity();
-  String message = "Temperature: " + String(temperature) + " ºC \n";
-  message += "Humidity: " + String (humidity) + " % \n";
-  return message;
-}
 
 // Indicates when motion is detected
 static void IRAM_ATTR detectsMovement(void * arg){
@@ -97,17 +84,6 @@ void setup(){
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, flashState);
 
-  // Init BME280 sensor
-  Wire.begin(I2C_SDA, I2C_SCL);
-  bme.settings.commInterface = I2C_MODE;
-  bme.settings.I2CAddress = 0x76;
-  bme.settings.runMode = 3;
-  bme.settings.tStandby = 0;
-  bme.settings.filter = 0;
-  bme.settings.tempOverSample = 1;
-  bme.settings.pressOverSample = 1;
-  bme.settings.humidOverSample = 1;
-  bme.begin();
   
   WiFi.mode(WIFI_STA);
   Serial.println();
@@ -142,17 +118,17 @@ void setup(){
   config.pin_sscb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
+  config.xclk_freq_hz = 16500000;
   config.pixel_format = PIXFORMAT_JPEG;
 
   //init with high specs to pre-allocate larger buffers
   if(psramFound()){
     config.frame_size = FRAMESIZE_UXGA;
-    config.jpeg_quality = 10;  //0-63 lower number means higher quality
+    config.jpeg_quality = 5;  //0-63 lower number means higher quality
     config.fb_count = 2;
   } else {
     config.frame_size = FRAMESIZE_SVGA;
-    config.jpeg_quality = 12;  //0-63 lower number means higher quality
+    config.jpeg_quality = 10;  //0-63 lower number means higher quality
     config.fb_count = 1;
   }
   
@@ -166,7 +142,7 @@ void setup(){
 
   // Drop down frame size for higher initial frame rate
   sensor_t * s = esp_camera_sensor_get();
-  s->set_framesize(s, FRAMESIZE_CIF);  // UXGA|SXGA|XGA|SVGA|VGA|CIF|QVGA|HQVGA|QQVGA
+  s->set_framesize(s, FRAMESIZE_VGA);  // UXGA|SXGA|XGA|SVGA|VGA|CIF|QVGA|HQVGA|QQVGA
 
   // PIR Motion Sensor mode INPUT_PULLUP
   //err = gpio_install_isr_service(0); 
@@ -187,7 +163,7 @@ void loop(){
     sendPhoto = false; 
   }
 
-  if(motionDetected){
+  if(motionDetected && motionON == 1){
     bot.sendMessage(chatId, "Motion detected!!", "");
     Serial.println("Motion Detected");
     sendPhotoTelegram();
@@ -255,7 +231,7 @@ String sendPhotoTelegram(){
     
     esp_camera_fb_return(fb);
     
-    int waitTime = 10000;   // timeout 10 seconds
+    int waitTime = 13000;   // timeout 10 seconds
     long startTimer = millis();
     boolean state = false;
     
@@ -307,20 +283,32 @@ void handleNewMessages(int numNewMessages){
       flashState = !flashState;
       digitalWrite(FLASH_LED_PIN, flashState);
     }
+    if (text == "/motion" && motionON == 0) {
+      motionON = !motionON;
+      bot.sendMessage(chatId, "Movimiento Activado", "");
+    }
+
+    if (text == "/motion" && motionON == 1) {
+      motionON = !motionON;
+      bot.sendMessage(chatId, "Movimiento Desactivado", "");
+    }
+
     if (text == "/photo") {
       sendPhoto = true;
       Serial.println("New photo  request");
     }
-    if (text == "/readings"){
-      String readings = getReadings();
-      bot.sendMessage(chatId, readings, "");
+    if (text == "/status" && motionON == 1){
+      bot.sendMessage(chatId, "Movimiento Activado", "");
     }
+    if (text == "/status" && motionON == 0){
+      bot.sendMessage(chatId, "Movimiento Desctivado", "");
+    }   
     if (text == "/start"){
-      String welcome = "Welcome to the ESP32-CAM Telegram bot.\n";
-      welcome += "/photo : takes a new photo\n";
-      welcome += "/flash : toggle flash LED\n";
-      welcome += "/readings : request sensor readings\n\n";
-      welcome += "You'll receive a photo whenever motion is detected.\n";
+      String welcome = "Este bot hace de las suyas con los siguientes comandos:\n";
+      welcome += "/photo : saca un foto\n";
+      welcome += "/flash : prende y apaga LED\n";
+      welcome += "/motion : prende y apaga la deteccion por movimiento\n";
+      welcome += "Se recibira una foto por cada movimiento detectado.\n";
       bot.sendMessage(chatId, welcome, "Markdown");
     }
   }

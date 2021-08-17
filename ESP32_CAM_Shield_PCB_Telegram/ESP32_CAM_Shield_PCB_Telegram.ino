@@ -6,10 +6,6 @@
 
   The above copyright notice and this permission notice shall be included in all
   copies or substantial portions of the Software.
-  
-  ****************
-  I took the liberty to destroy the original code a little bit. I ommited the BME280 and added a toggle for the motion detection to send a photo
-  
 */
 
 #include <WiFi.h>
@@ -22,16 +18,16 @@
 #include <Wire.h>
 
 // Replace with your network credentials
-const char* ssid = "#####";
-const char* password = "#####";
+const char* ssid = "**********";
+const char* password = "*********";
 
 // Use @myidbot to find out the chat ID of an individual or a group
 // Also note that you need to click "start" on a bot before it can
 // message you
-String chatId = "#####$$";
+String chatId = "********";
 
 // Initialize Telegram BOT
-String BOTtoken = "#####:############";
+String BOTtoken = "**********:****************************";
 
 bool sendPhoto = false;
 
@@ -272,7 +268,6 @@ void handleNewMessages(int numNewMessages){
       bot.sendMessage(chat_id, "Unauthorized user", "");
       continue;
     }
-    
     // Print the received message
     String text = bot.messages[i].text;
     Serial.println(text);
@@ -283,16 +278,14 @@ void handleNewMessages(int numNewMessages){
       flashState = !flashState;
       digitalWrite(FLASH_LED_PIN, flashState);
     }
-    if (text == "/motion" && motionON == 0) {
-      motionON = !motionON;
-      bot.sendMessage(chatId, "Movimiento Activado", "");
-    }
-
     if (text == "/motion" && motionON == 1) {
       motionON = !motionON;
-      bot.sendMessage(chatId, "Movimiento Desactivado", "");
+      bot.sendMessage(chatId, "Movimiento desactivado", "");
     }
-
+    else {
+      motionON = !motionON;
+      bot.sendMessage(chatId, "Movimiento activado", "");
+    }
     if (text == "/photo") {
       sendPhoto = true;
       Serial.println("New photo  request");
@@ -308,6 +301,7 @@ void handleNewMessages(int numNewMessages){
       welcome += "/photo : saca un foto\n";
       welcome += "/flash : prende y apaga LED\n";
       welcome += "/motion : prende y apaga la deteccion por movimiento\n";
+      welcome += "/status : chequea el estado de la deteccion por movimiento\n";
       welcome += "Se recibira una foto por cada movimiento detectado.\n";
       bot.sendMessage(chatId, welcome, "Markdown");
     }
